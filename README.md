@@ -36,7 +36,9 @@ This is a lightweight Python Flask app that runs small utility tools locally on 
 ## Running the App
 
 Run the Flask app with:
+     ```
     python app.py
+    ```
 
 
 The app will be available at `http://localhost:5000/`. The main page is rendered from `templates/index.html`.

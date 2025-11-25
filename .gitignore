@@ -1,0 +1,13 @@
+# Virtual environment folders
+venv/
+.env/
+__pycache__/
+*.pyc
+
+pdfconv/
+outputs/
+uploads/
+
+# OS generated files
+.DS_Store
+Thumbs.db
