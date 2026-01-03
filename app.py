@@ -5,6 +5,8 @@ from werkzeug.utils import secure_filename
 from docx2pdf import convert
 import subprocess
 from PIL import Image
+from PyPDF2 import PdfMerger
+
 app = Flask(__name__)
 
 # Create upload and output folders
@@ -44,6 +46,16 @@ def compress_pdf_file(input_path, output_path):
         ], check=True)
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"Ghostscript compression failed: {e}")
+
+def merge_pdfs(input_paths, output_path):
+    merger = PdfMerger()
+    try:
+        for pdf in input_paths:
+            merger.append(pdf)
+        merger.write(output_path)
+    finally:
+        merger.close()
+
 
 
 # ---------------- ROUTES ----------------
@@ -124,6 +136,38 @@ def convert_image_to_webp():
         return send_file(output_path, as_attachment=True)
 
     return "Please upload a JPEG, JPG, or PNG file"
+
+@app.route('/merge-pdf', methods=['POST'])
+def merge_pdf():
+    if 'files' not in request.files:
+        return "No files part"
+
+    files = request.files.getlist('files')
+
+    if not files or len(files) < 2:
+        return "Please upload at least two PDF files"
+
+    input_paths = []
+
+    for file in files:
+        if file.filename == '':
+            return "One of the files has no name"
+
+        if not file.filename.lower().endswith('.pdf'):
+            return "All files must be PDF"
+
+        filename = secure_filename(file.filename)
+        input_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(input_path)
+        input_paths.append(input_path)
+
+    output_filename = "merged.pdf"
+    output_path = os.path.join(app.config['OUTPUT_FOLDER'], output_filename)
+
+    merge_pdfs(input_paths, output_path)
+
+    return send_file(output_path, as_attachment=True)
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

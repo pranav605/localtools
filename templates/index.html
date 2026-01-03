@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -62,10 +63,12 @@
       min-width: 290px;
       flex: 1 1 330px;
       border: 1px solid var(--border);
-      transition: box-shadow 0.18s cubic-bezier(.4,0,.2,1), border-color 0.18s cubic-bezier(.4,0,.2,1);
+      transition: box-shadow 0.18s cubic-bezier(.4, 0, .2, 1), border-color 0.18s cubic-bezier(.4, 0, .2, 1);
     }
-    form:hover, form:focus-within {
-      box-shadow: 0 8px 36px rgba(37,99,235,.08), 0 2px 10px rgba(37,99,235,.08);
+
+    form:hover,
+    form:focus-within {
+      box-shadow: 0 8px 36px rgba(37, 99, 235, .08), 0 2px 10px rgba(37, 99, 235, .08);
       border-color: var(--accent);
       transform: translateY(-2px);
     }
@@ -91,6 +94,7 @@
       outline: none;
       cursor: pointer;
     }
+
     input[type="file"]:hover,
     input[type="file"]:focus {
       border: 1.2px solid var(--accent);
@@ -107,13 +111,15 @@
       background: var(--accent);
       color: #fff;
       transition: background 0.18s, box-shadow 0.18s, transform 0.18s;
-      box-shadow: 0 2px 8px rgba(37,99,235,0.13);
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.13);
       margin-top: 0.45rem;
     }
-    button:hover, button:focus {
+
+    button:hover,
+    button:focus {
       background: var(--accent-dark);
       transform: translateY(-1.5px) scale(1.033);
-      box-shadow: 0 4px 14px rgba(37,99,235,0.19);
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.19);
     }
 
     .note {
@@ -123,29 +129,74 @@
       text-align: left;
     }
 
+    #fileList {
+      list-style: none;
+      padding: 0;
+      margin: 0.8rem 0 0.2rem 0;
+    }
+
+    #fileList li {
+      padding: 0.65rem 0.75rem;
+      margin-bottom: 0.45rem;
+      border: 1px solid var(--border);
+      border-radius: 0.55rem;
+      background: #f8fafc;
+      cursor: grab;
+      font-size: 0.95rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    #fileList li.dragging {
+      opacity: 0.5;
+    }
+
+    .file-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .file-index {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-left: 0.6rem;
+    }
+
+    .disabled {
+      pointer-events: none;
+      background: gray;
+    }
+
     @media (max-width: 900px) {
       .forms-container {
         flex-direction: column;
         gap: 1.6rem;
         align-items: stretch;
       }
+
       form {
         max-width: 98vw;
       }
     }
+
     @media (max-width: 500px) {
       h1 {
         font-size: 1.15rem;
       }
+
       form {
         padding: 1.2rem 0.7rem 1.2rem 0.7rem;
       }
+
       .note {
         font-size: 0.89rem;
       }
     }
   </style>
 </head>
+
 <body>
   <h1>DOCX & PDF Tool</h1>
   <div class="forms-container">
@@ -163,6 +214,21 @@
       <button type="submit">Compress</button>
     </form>
 
+    <form id="mergeForm" autocomplete="off">
+      <h3>Merge PDFs</h3>
+
+      <input type="file" id="pdfInput" accept="application/pdf" multiple />
+
+      <div class="note">
+        Drag files below to reorder before merging.
+      </div>
+
+      <ul id="fileList"></ul>
+
+      <button id="merge" class="disabled" type="submit">Merge PDFs</button>
+    </form>
+
+
     <form action="/convert-image" method="post" enctype="multipart/form-data" autocomplete="off">
       <h3>Convert Image to Webp</h3>
       <input type="file" name="file" accept=".jpeg,.jpg,.png" required>
@@ -170,5 +236,107 @@
       <button type="submit">Convert</button>
     </form>
   </div>
+
+  <script>
+    const input = document.getElementById("pdfInput");
+    const list = document.getElementById("fileList");
+    const form = document.getElementById("mergeForm");
+
+    let files = [];
+
+    input.addEventListener("change", () => {
+      const newFiles = Array.from(input.files);
+
+      newFiles.forEach(file => {
+        if (!files.some(f => f.name === file.name && f.size === file.size)) {
+          files.push(file);
+        }
+      });
+
+      input.value = ""; // allow re-selecting same file
+      renderList();
+    });
+
+
+    function renderList() {
+      list.innerHTML = "";
+      files.forEach((file, index) => {
+        const li = document.createElement("li");
+        li.draggable = true;
+        li.dataset.index = index;
+
+        li.innerHTML = `
+        <span class="file-name">${file.name}</span>
+        <span class="file-index">${index + 1}</span>
+      `;
+
+        addDragEvents(li);
+        list.appendChild(li);
+      });
+    }
+
+    function addDragEvents(item) {
+      item.addEventListener("dragstart", () => {
+        item.classList.add("dragging");
+      });
+
+      item.addEventListener("dragend", () => {
+        item.classList.remove("dragging");
+      });
+
+      item.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        const dragging = document.querySelector(".dragging");
+        if (!dragging || dragging === item) return;
+
+        const dragIndex = +dragging.dataset.index;
+        const hoverIndex = +item.dataset.index;
+
+        files.splice(
+          hoverIndex,
+          0,
+          files.splice(dragIndex, 1)[0]
+        );
+
+        renderList();
+      });
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      if (files.length < 2) {
+        alert("Please select at least two PDFs");
+        return;
+      }
+
+      const formData = new FormData();
+      files.forEach(file => formData.append("files", file));
+
+      const response = await fetch("/merge-pdf", {
+        method: "POST",
+        body: formData
+      });
+
+      if (!response.ok) {
+        alert("Failed to merge PDFs");
+        return;
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "merged.pdf";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    });
+  </script>
+
+
 </body>
+
 </html>
